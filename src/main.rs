@@ -1,22 +1,17 @@
-use actix_web::{get, App, HttpResponse, HttpServer, Responder};
+mod model;
+mod response;
+mod handler;
+
+use actix_cors::Cors;
+use actix_web::{get, App, HttpResponse, HttpServer, Responder, web};
 use actix_web::middleware::Logger;
 use serde::Serialize;
+use crate::model::AppState;
 
 #[derive(Serialize)]
 pub struct GenericResponse {
     pub status: String,
     pub message: String,
-}
-
-#[get("/get/health")]
-async fn health_checker_handler() -> impl Responder {
-    const MESSAGE: &str = "Build Simple CRUD API with Rust and Actix Web";
-
-    let response_json = &GenericResponse {
-        status: "success".to_string(),
-        message: MESSAGE.to_string(),
-    };
-    HttpResponse::Ok().json(response_json)
 }
 
 #[actix_web::main]
@@ -26,11 +21,21 @@ async fn main() -> std::io::Result<()> {
     }
     env_logger::init();
 
+    let todo_db =AppState::init();
+    let app_data = web::Data::new(todo_db);
+
     println!("🚀 Server started successfully");
 
     HttpServer::new(move || {
+        let cors = Cors::default()
+            .allow_any_header()
+            .allow_any_method()
+            .allow_any_origin()
+            .supports_credentials();
         App::new()
-            .service(health_checker_handler)
+            .app_data(app_data.clone())
+            .configure(handler::config)
+            .wrap(cors)
             .wrap(Logger::default())
     })
         .bind(("127.0.0.1", 8080))?
